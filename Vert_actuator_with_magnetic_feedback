@@ -1,0 +1,100 @@
+// FINGER 1
+#define FLEX_SENSOR_PIN_1 A0  
+#define FLEX_MAX_1 330
+#define FLEX_MIN_1 440
+
+// FINGER 2
+#define FLEX_SENSOR_PIN_2 A1  
+#define FLEX_MAX_2 458
+#define FLEX_MIN_2 472
+
+// FINGER 3
+#define FLEX_SENSOR_PIN_3 A2  
+#define FLEX_MAX_3 390
+#define FLEX_MIN_3 420
+
+// Motor 1 Pins (Gripper)
+int motorpin1 = 2;
+int motorpin2 = 3;
+int pwmPin = 10;
+
+// Motor 2 Pins (Vertical actuator)
+int vertMotorPin1 = 7;
+int vertMotorPin2 = 8;
+
+unsigned long lastChangeTime = 0;
+float previousAvgAngle = 0;
+bool objectGrasped = false;
+const unsigned long STABILITY_DURATION = 2000;
+const float ANGLE_THRESHOLD = 3.0;
+
+void setup() {
+    Serial.begin(9600);  
+    pinMode(motorpin1, OUTPUT);
+    pinMode(motorpin2, OUTPUT);
+    pinMode(pwmPin, OUTPUT);
+    
+    pinMode(vertMotorPin1, OUTPUT);
+    pinMode(vertMotorPin2, OUTPUT);
+}
+
+void loop() {
+    // Read flex sensor values
+    int flexValue_1 = analogRead(FLEX_SENSOR_PIN_1);
+    int flexValue_2 = analogRead(FLEX_SENSOR_PIN_2);
+    int flexValue_3 = analogRead(FLEX_SENSOR_PIN_3);
+
+    float angle_1 = map(flexValue_1, FLEX_MIN_1, FLEX_MAX_1, 0, 180);
+    angle_1 = constrain(angle_1, 0, 180);
+
+    float angle_2 = map(flexValue_2, FLEX_MIN_2, FLEX_MAX_2, 0, 180);
+    angle_2 = constrain(angle_2, 0, 180);
+
+    float angle_3 = map(flexValue_3, FLEX_MIN_3, FLEX_MAX_3, 0, 180);
+    angle_3 = constrain(angle_3, 0, 180);
+
+    float avg_angle = (angle_1 + angle_2 * 0.5 + angle_3 * 0.5) / 2.0;
+
+    // Gripper motor control
+    int pwmValue = 0;
+    if (avg_angle < 90) {
+        pwmValue = 255;
+    } else {
+        pwmValue = 255;
+    }
+
+    analogWrite(pwmPin, pwmValue);
+    digitalWrite(motorpin1, HIGH);
+    digitalWrite(motorpin2, LOW);
+
+    // Check serial input for vertical actuator control
+    if (Serial.available()) {
+        char input = Serial.read();
+        if (input == 'z') {
+            // Clockwise rotation
+            digitalWrite(vertMotorPin1, HIGH);
+            digitalWrite(vertMotorPin2, LOW);
+        } else if (input == 'x') {
+            // Counter-clockwise rotation
+            digitalWrite(vertMotorPin1, LOW);
+            digitalWrite(vertMotorPin2, HIGH);
+        } else if (input == 'c') {
+            // Stop motor
+            digitalWrite(vertMotorPin1, LOW);
+            digitalWrite(vertMotorPin2, LOW);
+        }
+    }
+
+    // Debug output
+    Serial.print("Flex 1: "); Serial.print(flexValue_1);
+    Serial.print(" | Angle 1: "); Serial.print(angle_1);
+    Serial.print(" || Flex 2: "); Serial.print(flexValue_2);
+    Serial.print(" | Angle 2: "); Serial.print(angle_2);
+    Serial.print(" || Flex 3: "); Serial.print(flexValue_3);
+    Serial.print(" | Angle 3: "); Serial.print(angle_3);
+    Serial.print(" || Avg Angle: "); Serial.print(avg_angle);
+    Serial.print(" | PWM: "); Serial.println(pwmValue);
+
+    previousAvgAngle = avg_angle;
+    delay(100); // Small delay to stabilize readings
+}
